@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+chainlit
+httpx
+msal
+python-dotenv
+azure-identity
+azure-storage-blob
+starlette 
+itsdangerous

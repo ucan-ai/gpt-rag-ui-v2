@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Debug Chainlit App",
+        "type": "debugpy",
+        "request": "launch",
+        "module": "chainlit",
+        "args": [
+          "run",
+          "app.py"
+        ],
+        "console": "integratedTerminal"
+      }
+    ]
+  }
+  
