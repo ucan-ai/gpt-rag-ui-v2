@@ -4,6 +4,7 @@ import re
 import uuid
 from typing import Optional, Tuple
 
+import urllib.parse
 import chainlit as cl
 from orchestrator_client import call_orchestrator_stream
 
@@ -21,7 +22,7 @@ def extract_conversation_id_from_chunk(chunk: str) -> Tuple[Optional[str], str]:
     match = UUID_REGEX.match(chunk)
     if match:
         conv_id = match.group(1)
-        logging.info("[chainlit_app] Extracted Conversation ID: %s", conv_id)
+        logging.info("[app] Extracted Conversation ID: %s", conv_id)
         cleaned_chunk = chunk[match.end():]
         return conv_id, cleaned_chunk
     return None, chunk
@@ -50,7 +51,7 @@ async def handle_message(message: cl.Message):
     generator = call_orchestrator_stream(conversation_id, message.content)
     try:
         async for chunk in generator:
-            # logging.info("[chainlit_app] Chunk received: %s", chunk)
+            logging.info("[app] Chunk received: %s", chunk)
             
             # Extract conversation id (if present) and clean the chunk.
             extracted_id, cleaned_chunk = extract_conversation_id_from_chunk(chunk)
@@ -64,7 +65,7 @@ async def handle_message(message: cl.Message):
             found_refs = REFERENCE_REGEX.findall(cleaned_chunk)
             if found_refs:
                 for ref in found_refs:
-                    logging.info("[chainlit_app] Found PDF reference: %s", ref)
+                    logging.info("[app] Found PDF reference: %s", ref)
                     references.add(ref)
             
             # Remove the PDF reference markers from the text.
@@ -81,7 +82,7 @@ async def handle_message(message: cl.Message):
                 text_to_send = buffer[:token_index]
                 if text_to_send:                 
                     await response_msg.stream_token(text_to_send)
-                logging.info("[chainlit_app] TERMINATE token detected and removed. Draining remaining chunks...")
+                logging.info("[app] TERMINATE token detected and removed. Draining remaining chunks...")
                 try:
                     async for _ in generator:
                         pass
@@ -99,7 +100,7 @@ async def handle_message(message: cl.Message):
             "I'm sorry, I had a problem with the request. Please report the error "
             f"to the support team. Error message: {e}"
         )
-        logging.error("[chainlit_app] Error: %s", error_message)
+        logging.error("[app] Error: %s", error_message)
         await response_msg.stream_token(error_message)
     finally:
         try:
@@ -120,7 +121,11 @@ async def handle_message(message: cl.Message):
 
     def replace_pdf_ref(match):
         pdf_file = match.group(1)
-        return f"[{pdf_file}](/downloads/{pdf_file})"
+        # Decode the filename to get a clean, human-friendly display name.
+        decoded_pdf_file = urllib.parse.unquote(pdf_file)
+        # Re-encode the decoded name to ensure a valid URL.
+        encoded_pdf_file = urllib.parse.quote(decoded_pdf_file)
+        return f"[{decoded_pdf_file}](/downloads/{encoded_pdf_file})"
 
     cleaned_full_text = full_text.replace("TERMINATE", "")
 
