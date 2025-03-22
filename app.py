@@ -27,8 +27,20 @@ def extract_conversation_id_from_chunk(chunk: str) -> Tuple[Optional[str], str]:
         return conv_id, cleaned_chunk
     return None, chunk
 
-# Regular expression to detect PDF references inside square brackets.
-REFERENCE_REGEX = re.compile(r'\[([^\]]+\.pdf)\]', re.IGNORECASE)
+# Regular expression to detect file references inside square brackets.
+import re
+
+SUPPORTED_EXTENSIONS = [
+    "pdf", "bmp", "jpeg", "png", "tiff", "xlsx", "docx", "pptx",
+    "md", "txt", "html", "shtml", "htm", "py", "csv", "xml", "json", "vtt"
+]
+
+REFERENCE_REGEX = re.compile(
+    r'\[([^\]]+\.(?:' + '|'.join(SUPPORTED_EXTENSIONS) + r'))\]',
+    re.IGNORECASE
+)
+
+
 @cl.on_message
 async def handle_message(message: cl.Message):
 
@@ -45,7 +57,7 @@ async def handle_message(message: cl.Message):
     TERMINATE_TOKEN = "TERMINATE"
     buffer = ""  # Buffer to accumulate text for streaming.
     full_text = ""  # Accumulates all cleaned text for final reference detection.
-    references = set()  # Set to store detected PDF references.
+    references = set()  # Set to store detected references.
 
     # Get the async generator from the orchestrator stream.
     generator = call_orchestrator_stream(conversation_id, message.content)
@@ -61,14 +73,14 @@ async def handle_message(message: cl.Message):
             # Replace literal "\n" with actual newlines.
             cleaned_chunk = cleaned_chunk.replace("\\n", "\n")
 
-            # Detect PDF references in the current cleaned chunk.
+            # Detect file references in the current cleaned chunk.
             found_refs = REFERENCE_REGEX.findall(cleaned_chunk)
             if found_refs:
                 for ref in found_refs:
-                    logging.info("[app] Found PDF reference: %s", ref)
+                    logging.info("[app] Found file reference: %s", ref)
                     references.add(ref)
             
-            # Remove the PDF reference markers from the text.
+            # Remove the source reference markers from the text.
             cleaned_chunk = REFERENCE_REGEX.sub("", cleaned_chunk)
 
             # Append the cleaned chunk to the buffer.
@@ -119,18 +131,16 @@ async def handle_message(message: cl.Message):
     # Merge any new references found
     references = references.union(final_refs)
 
-    def replace_pdf_ref(match):
-        pdf_file = match.group(1)
-        # Decode the filename to get a clean, human-friendly display name.
-        decoded_pdf_file = urllib.parse.unquote(pdf_file)
-        # Re-encode the decoded name to ensure a valid URL.
-        encoded_pdf_file = urllib.parse.quote(decoded_pdf_file)
-        return f"[{decoded_pdf_file}](/downloads/{encoded_pdf_file})"
+    def replace_source_ref(match):
+        source_file = match.group(1)
+        decoded_source_file = urllib.parse.unquote(source_file)
+        encoded_source_file = urllib.parse.quote(decoded_source_file)
+        return f"[{decoded_source_file}](/download/{encoded_source_file})"
 
     cleaned_full_text = full_text.replace("TERMINATE", "")
 
     # Use re.sub on the full_text to include the download links.
-    final_text_with_links = re.sub(REFERENCE_REGEX, replace_pdf_ref, cleaned_full_text)
+    final_text_with_links = re.sub(REFERENCE_REGEX, replace_source_ref, cleaned_full_text)
 
     # Update the response message with the new content that contains the links.
     response_msg.content = final_text_with_links

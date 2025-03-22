@@ -71,32 +71,18 @@ class BlobClient:
             bytes: The content of the blob.
 
         Raises:
-            Exception: If downloading the blob fails after retries.
+            Exception: If downloading the blob fails.
         """
         blob_client = self.blob_service_client.get_blob_client(container=self.container_name, blob=self.blob_name)
-        blob_error = None
-        data = b""
 
         try:
             logging.debug(f"[blob][{self.blob_name}] Attempting to download blob.")
             data = blob_client.download_blob().readall()
             logging.info(f"[blob][{self.blob_name}] Blob downloaded successfully.")
+            return data
         except Exception as e:
-            logging.warning(f"[blob][{self.blob_name}] Connection error, retrying in 10 seconds... Error: {e}")
-            time.sleep(10)
-            try:
-                data = blob_client.download_blob().readall()
-                logging.info(f"[blob][{self.blob_name}] Blob downloaded successfully on retry.")
-            except Exception as e_retry:
-                blob_error = e_retry
-                logging.error(f"[blob][{self.blob_name}] Failed to download blob after retry: {blob_error}")
-
-        if blob_error:
-            error_message = f"Blob client error when reading from blob storage: {blob_error}"
-            logging.error(f"[blob][{self.blob_name}] {error_message}")
-            raise Exception(error_message)
-
-        return data
+            logging.error(f"[blob][{self.blob_name}] Failed to download blob: {e}")
+            raise Exception(f"Blob client error when reading from blob storage: {e}")
 
 class BlobContainerClient:
     def __init__(self, storage_account_base_url, container_name, credential=None):
