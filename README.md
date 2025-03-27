@@ -44,7 +44,6 @@ cp .env.template .env
 | `AZURE_RESOURCE_GROUP_NAME` | Resource group where your Function App is deployed |
 | `AZURE_ORCHESTRATOR_FUNC_NAME` | Name of the orchestrator Function App |
 | `BLOB_STORAGE_ACCOUNT_NAME` | Storage account where source documents are located |
-| `BLOB_STORAGE_CONTAINER` | Container within the storage account |
 | `CHAINLIT_SECRET_KEY` | Secret used for session security in Chainlit |
 
 #### 🔐 **Optional: Entra ID Authentication (Azure AD)**
