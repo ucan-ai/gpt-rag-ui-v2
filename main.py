@@ -8,6 +8,16 @@ from chainlit.server import app as chainlit_app
 
 from connectors import BlobClient
 
+# Logging configuration
+logging.basicConfig(level=os.environ.get('LOGLEVEL', 'INFO').upper(), force=True)
+logging.getLogger("azure").setLevel(os.environ.get('AZURE_LOGLEVEL', 'WARNING').upper())
+logging.getLogger("httpx").setLevel(os.environ.get('HTTPX_LOGLEVEL', 'ERROR').upper())
+logging.getLogger("httpcore").setLevel(os.environ.get('HTTPCORE_LOGLEVEL', 'ERROR').upper())
+logging.getLogger("urllib3").setLevel(os.environ.get('URLLIB3_LOGLEVEL', 'WARNING').upper())
+logging.getLogger("urllib3.connectionpool").setLevel(os.environ.get('URLLIB3_CONNECTIONPOOL_LOGLEVEL', 'WARNING').upper())
+logging.getLogger("uvicorn.error").propagate = True
+logging.getLogger("uvicorn.access").propagate = True
+
 def get_env_var(var_name: str) -> str:
     """Retrieve required environment variable or raise error."""
     value = os.getenv(var_name)
@@ -17,8 +27,6 @@ def get_env_var(var_name: str) -> str:
 
 def download_from_blob(file_name: str) -> bytes:
     logging.info("[chainlit_app] Downloading file: %s", file_name)
-    
-    account_name = get_env_var("STORAGE_ACCOUNT")
 
     blob_url = f"https://{account_name}.blob.core.windows.net/{file_name}"
     logging.debug(f"[chainlit_app] Constructed blob URL: {blob_url}")
@@ -32,9 +40,11 @@ def download_from_blob(file_name: str) -> bytes:
         logging.error(f"[chainlit_app] Error downloading blob {file_name}: {e}")
         raise
 
-@chainlit_app.get("/source/{file_path:path}")
-def download_file(file_path: str):
-    # TODO: Validate blob metadata_security_id to prevent unauthorized access.
+account_name = get_env_var("STORAGE_ACCOUNT")
+documents_container = get_env_var("BLOB_STORAGE_DOCUMENTS_CONTAINER")
+images_container = get_env_var("BLOB_STORAGE_IMAGES_CONTAINER")
+
+def handle_file_download(file_path: str):
     try:
         file_bytes = download_from_blob(file_path)
         if not file_bytes:
@@ -49,25 +59,35 @@ def download_file(file_path: str):
             media_type="text/plain"
         )
     
-    # Extract the actual file name if the provided file_name includes slashes.
     actual_file_name = os.path.basename(file_path)
-    
     return StreamingResponse(
         BytesIO(file_bytes),
         media_type="application/octet-stream",
         headers={"Content-Disposition": f'attachment; filename="{actual_file_name}"'}
     )
 
+# TODO: Validate blob metadata_security_id to prevent unauthorized access.
+
+@chainlit_app.get(f"/{documents_container}/" + "{file_path:path}")
+def download_document(file_path: str):
+    return handle_file_download(f"{documents_container}/{file_path}")
+
+@chainlit_app.get(f"/{images_container}/" + "{file_path:path}")
+def download_image(file_path: str):
+    return handle_file_download(f"{images_container}/{file_path}")
+
+
 # -----------------------------------
-# Ensure source route is prioritized
+# Ensure source routes are prioritized
 # -----------------------------------
 try:
-    source_route = next(
-        route for route in chainlit_app.router.routes if getattr(route, "path", "").startswith("/source/")
-    )
-    chainlit_app.router.routes.remove(source_route)
-    chainlit_app.router.routes.insert(0, source_route)
-    logging.info("[chainlit_app] Moved source route to the top of the route list.")
+    images_route = next(route for route in chainlit_app.router.routes if getattr(route, "path", "").startswith(f"/{documents_container}/"))
+    chainlit_app.router.routes.remove(images_route)
+    chainlit_app.router.routes.insert(0, images_route)
+    documents_route = next(route for route in chainlit_app.router.routes if getattr(route, "path", "").startswith(f"/{images_container}/"))
+    chainlit_app.router.routes.remove(documents_route)
+    chainlit_app.router.routes.insert(0, documents_route)
+    logging.info("[chainlit_app] Moved source routes to the top of the route list.")
 except StopIteration:
     logging.warning("[chainlit_app] source route not found; skipping reorder.")
 
