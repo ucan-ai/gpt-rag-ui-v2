@@ -41,8 +41,8 @@ def download_from_blob(file_name: str) -> bytes:
         raise
 
 account_name = get_env_var("STORAGE_ACCOUNT")
-documents_container = get_env_var("BLOB_STORAGE_DOCUMENTS_CONTAINER")
-images_container = get_env_var("BLOB_STORAGE_IMAGES_CONTAINER")
+documents_container = get_env_var("STORAGE_CONTAINER")
+images_container = get_env_var("STORAGE_CONTAINER_IMAGES")
 
 def handle_file_download(file_path: str):
     try:
