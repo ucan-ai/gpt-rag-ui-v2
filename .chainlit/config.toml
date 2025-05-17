@@ -53,7 +53,7 @@ edit_message = true
 
 [UI]
 # Name of the assistant.
-name = "GPT-RAG"
+name = "Ironfleet - SuperDoc"
 
 # default_theme = "dark"
 default_theme = "light"
