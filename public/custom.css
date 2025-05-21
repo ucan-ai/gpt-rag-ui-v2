@@ -17,3 +17,7 @@ img[src*="favicon"] {
 div.relative.hidden.bg-muted.lg\:block {
   display: none !important;
 }
+
+a[href*='https://github.com/Chainlit/chainlit'] {
+  visibility: hidden;
+}
