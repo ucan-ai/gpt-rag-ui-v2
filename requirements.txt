@@ -8,3 +8,7 @@ azure-identity
 azure-storage-blob
 starlette 
 itsdangerous
+openai
+yfinance
+plotly
+websockets==14.1
